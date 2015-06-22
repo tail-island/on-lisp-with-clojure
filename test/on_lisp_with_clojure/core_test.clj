@@ -1,6 +1,6 @@
 (ns on-lisp-with-clojure.core-test
   (:use     (on-lisp-with-clojure core))
-  (:require (clojure              [test   :refer :all])))
+  (:require (clojure              [test :refer :all])))
 
 (deftest test-if-match
   (is (= [1 2]
