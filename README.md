@@ -1,14 +1,20 @@
 # on-lisp-with-clojure
 
-A Clojure library designed to ... well, that part is up to you.
+Studying excellent [On Lisp](http://www.paulgraham.com/onlisp.html) with Clojure. It's Prolog on Clojure.
 
-## Usage
+```clojure
+user> (with-rules (-> *rules*
+                      (<- (append [] Xs Xs))                 ; Defining "append" with Prolog.
+                      (<- (append [X & As] Bs [X & Cs])
+                          (append As Bs Cs)))
+        (into [] (with-inference (append X Y [:a :b :c :d])  ; Querying X Y with Prolog.
+                   [X Y])))
 
-FIXME
+[[[] [:a :b :c :d]] [[:a] [:b :c :d]] [[:a :b] [:c :d]] [[:a :b :c] [:d]] [[:a :b :c :d] []]]
+```
 
 ## License
 
-Copyright © 2015 FIXME
+Copyright © 2015 OJIMA Ryoji
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the Eclipse Public License either version 1.0 or any later version.
