@@ -19,51 +19,49 @@
 
 ;; Matching.
 
-(def first-variable-chars
+(def ^:private ^:const first-variable-chars
   (set (cons \? (map char (take 26 (iterate inc (int \A)))))))
 
-(defn variable?
+(defn- variable?
   [x]
   (and (symbol? x) (contains? first-variable-chars (first (name x)))))
 
-(defn variable-symbols
+(defn- variable-symbols
   [& xs]
   (filter variable? (tree-seq coll? identity xs)))
 
 (defn match
-  ([variables x y]
-   (letfn [(match-many [variables xs ys]
-             (letfn [(destructure []  ; ドット対対策。
-                       (let [ds (map #(if (= (first %) '&) (second %)) [xs ys])]
-                         (if (some identity ds)
-                           (map #(or %1 %2) ds [xs ys]))))]
-               (cond-let it
-                 (destructure) (match variables (first it) (second it))
-                 :else         (if (every? seq [xs ys])
-                                 (if-let [variables (match variables (first xs) (first ys))]
-                                   (recur variables (rest xs) (rest ys)))  ; nilではなく[]を使いたいので、nextではなくrestしました。
-                                 (match variables (seq xs) (seq ys))))))   ; シーケンスに変換しないと、[]の場合に無限ループしてしまいます……。
-           (binded-values []
-             (let [cs (map (partial contains? variables) [x y])]
-               (if (some identity cs)
-                 (map #(if %1 (get variables %2) %2) cs [x y]))))
-           (bind-values []
-             (->> (map #(and (variable? %1) (assoc variables %1 %2)) [x y] [y x])
-                  (some identity)))]  ; someで片方向にしているので、循環はしないはず……。Prologは定義に順序があるので、片方向でも大丈夫なはず……。On Lispでも片方向っぽいし……。
-     (cond-let it
-       (or (= x y) (= x '_) (= y '_)) variables
-       (binded-values)                (recur variables (first it) (second it))
-       (bind-values)                  it
-       (every? coll? [x y])           (match-many variables x y))))
-  ([x y]
-   (match {} x y)))
+  [variables x y]
+  (letfn [(match-many [variables xs ys]
+            (letfn [(destructure []  ; ドット対対策。
+                      (let [ds (map #(if (= (first %) '&) (second %)) [xs ys])]
+                        (if (some identity ds)
+                          (map #(or %1 %2) ds [xs ys]))))]
+              (cond-let it
+                (destructure) (match variables (first it) (second it))
+                :else         (if (every? seq [xs ys])
+                                (if-let [variables (match variables (first xs) (first ys))]
+                                  (recur variables (rest xs) (rest ys)))  ; nilではなく[]を使いたいので、nextではなくrestしました。
+                                (match variables (seq xs) (seq ys))))))   ; シーケンスに変換しないと、[]の場合に無限ループしてしまいます……。
+          (binded-values []
+            (let [cs (map (partial contains? variables) [x y])]
+              (if (some identity cs)
+                (map #(if %1 (get variables %2) %2) cs [x y]))))
+          (bind-values []
+            (->> (map #(and (variable? %1) (assoc variables %1 %2)) [x y] [y x])
+                 (some identity)))]  ; someで片方向にしているので、循環はしないはず……。Prologは定義に順序があるので、片方向でも大丈夫なはず……。On Lispでも片方向っぽいし……。
+    (cond-let it
+      (or (= x y) (= x '_) (= y '_)) variables
+      (binded-values)                (recur variables (first it) (second it))
+      (bind-values)                  it
+      (every? coll? [x y])           (match-many variables x y))))
 
 (defmacro with-gensym-variables-let
   [variables & body]
   `(let [~@(mapcat (fn [variable] [variable '(with-meta (gensym "?") {:unbound? true})]) variables)]
      ~@body))
 
-(defn quote-special-symbol
+(defn- quote-special-symbol
   [x]
   (if (and (coll? x) (not= (first x) 'quote))
     (vec (map quote-special-symbol x))
@@ -98,7 +96,7 @@
   [x y then & [else]]
   (let [variables (gensym)]
     `(with-gensym-variables-let ~(variable-symbols x y then)
-       (if-let [~variables (match ~(quote-special-symbol x) ~(quote-special-symbol y))]
+       (if-let [~variables (match {} ~(quote-special-symbol x) ~(quote-special-symbol y))]
          (with-variables-let ~variables
            ~then)
          ~else))))
@@ -113,7 +111,7 @@
   `(binding [*rules* ~rules]
      ~@body))
 
-(defn compile-query-fn
+(defn- compile-query-fn
   [expr]
   (letfn [(compile-and-fn [[clause & more :as clauses]]
             (let [variables (gensym)]
@@ -156,7 +154,7 @@
       :else                  `(fn [variables#]
                                 (lazy-mapcat #(% variables# ~(apply vector `(quote ~(first expr)) (quote-special-symbol (next expr)))) *rules*)))))
 
-(defn compile-rule-fn
+(defn- compile-rule-fn
   [consequent antecedents]
   `(fn [variables# query#]
      (with-gensym-variables-let ~(variable-symbols consequent antecedents)
