@@ -152,7 +152,9 @@
       (= (first expr) 'fail) (compile-fail-fn)
       (= (first expr) 'clj)  (compile-clj-fn (second expr))
       :else                  `(fn [variables#]
-                                (lazy-mapcat #(% variables# ~(apply vector `(quote ~(first expr)) (quote-special-symbol (next expr)))) *rules*)))))
+                                (if (= variables# :cut)
+                                  [variables#]
+                                  (lazy-mapcat #(% variables# ~(apply vector `(quote ~(first expr)) (quote-special-symbol (next expr)))) *rules*))))))
 
 (defn- compile-rule-fn
   [consequent antecedents]
