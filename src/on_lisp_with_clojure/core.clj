@@ -120,7 +120,9 @@
                    (lazy-mapcat (fn [~variables] ~(compile-and-fn more))))
                 `[~variables]))
             (compile-or-fn [clauses]
-              `(concat ~@(map (fn [clause] `(~(compile-query-fn clause) ~variables)) clauses)))
+              (if (seq clauses)
+                `(concat ~@(map (fn [clause] `(~(compile-query-fn clause) ~variables)) clauses))
+                `[~variables]))
             (compile-not-fn [expr]
               `(if-not (seq (~(compile-query-fn expr) ~variables))
                  [~variables]))
@@ -129,7 +131,7 @@
                                                               ~expr2))]
                  [~variables]))
             (compile-cut-fn []
-              `[~variables :cut])
+              `[~variables :cut!])
             (compile-fail-fn []
               `nil)
             (compile-clj-fn [expr]
@@ -137,7 +139,7 @@
                      ~expr)
                  [~variables]))]
       `(fn [~variables]
-         (if (= ~variables :cut)
+         (if (= ~variables :cut!)
            [~variables]
            ~(cond
               (= (first expr) 'and)  (compile-and-fn (next   expr))
@@ -164,9 +166,8 @@
   [query & body]
   `(with-gensym-variables-let ~(variable-symbols query body)
      (->> (~(compile-query-fn query) {})
-          (take-while #(not= % :cut))
+          (take-while #(not= % :cut!))
           (map #(with-variables-let %
                   ~@body)))))
 
 ;; TODO: ドット対への対応が、あまりにも場当たり的（2箇所に分散しちゃってるもんね……。あと、規則やクエリの中で&を使えなくなっちゃっているし……）。他の方法を検討してみる！
-;; TODO: cutへの考慮に不足がないか見直す。テストを書けてないのでわからないけれど、明らかに不足しているような……。でも、実用上は問題なさそうな……。
