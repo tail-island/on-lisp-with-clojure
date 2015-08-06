@@ -114,27 +114,27 @@
 (defn- compile-query-fn
   [expr]
   (let [variables (gensym)]
-    (letfn [(compile-and-fn [[clause & more :as clauses]]
+    (letfn [(compile-and [[clause & more :as clauses]]
               (if (seq clauses)
                 `(some->> (seq (~(compile-query-fn clause) ~variables))
-                   (lazy-mapcat (fn [~variables] ~(compile-and-fn more))))
+                   (lazy-mapcat (fn [~variables] ~(compile-and more))))
                 `[~variables]))
-            (compile-or-fn [clauses]
+            (compile-or [clauses]
               (if (seq clauses)
                 `(concat ~@(map (fn [clause] `(~(compile-query-fn clause) ~variables)) clauses))
                 `[~variables]))
-            (compile-not-fn [expr]
+            (compile-not [expr]
               `(if-not (seq (~(compile-query-fn expr) ~variables))
                  [~variables]))
-            (compile-is-fn [expr1 expr2]
+            (compile-is [expr1 expr2]
               `(if-let [~variables (match ~variables ~expr1 (with-variables-let ~variables
                                                               ~expr2))]
                  [~variables]))
-            (compile-cut-fn []
+            (compile-cut []
               `[~variables :cut!])
-            (compile-fail-fn []
+            (compile-fail []
               `nil)
-            (compile-clj-fn [expr]
+            (compile-clj [expr]
               `(if (with-variables-let ~variables
                      ~expr)
                  [~variables]))]
@@ -142,13 +142,13 @@
          (if (= ~variables :cut!)
            [~variables]
            ~(cond
-              (= (first expr) 'and)  (compile-and-fn (next   expr))
-              (= (first expr) 'or)   (compile-or-fn  (next   expr))
-              (= (first expr) 'not)  (compile-not-fn (second expr))
-              (= (first expr) 'is)   (compile-is-fn  (second expr) (nth expr 2))
-              (= (first expr) 'cut)  (compile-cut-fn)
-              (= (first expr) 'fail) (compile-fail-fn)
-              (= (first expr) 'clj)  (compile-clj-fn (second expr))
+              (= (first expr) 'and)  (compile-and (next   expr))
+              (= (first expr) 'or)   (compile-or  (next   expr))
+              (= (first expr) 'not)  (compile-not (second expr))
+              (= (first expr) 'is)   (compile-is  (second expr) (nth expr 2))
+              (= (first expr) 'cut)  (compile-cut)
+              (= (first expr) 'fail) (compile-fail)
+              (= (first expr) 'clj)  (compile-clj (second expr))
               :else                  `(lazy-mapcat #(% ~variables ~(apply vector `(quote ~(first expr)) (quote-special-symbol (next expr)))) *rules*)))))))
 
 (defn- compile-rule-fn
